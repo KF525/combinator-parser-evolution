@@ -56,26 +56,21 @@ class ParserSpec extends AnyFlatSpecLike with Matchers {
 
   "satisfies" should "returns value and remaining input if predicate true" in {
     def predicate: Char => Boolean = c => c == ('y')
-
     Parser.satisfies(predicate)("yes") shouldBe List(('y', "es"))
   }
 
   it should "returns empty list is predicate false" in {
     def predicate: Char => Boolean = c => c == ('y')
-
     Parser.satisfies(predicate)("nope") shouldBe List()
   }
 
-
   "satisfiesWithParserFlatMap" should "returns value and remaining input if predicate true" in {
-    def predicate(c: Char): Boolean = c == ('c')
-
+    def predicate: Char => Boolean = c => c == ('c')
     Parser.satisfiesWithParserFlatMap(predicate)("congratulations") shouldBe List(('c', "ongratulations"))
   }
 
   it should "returns empty list is predicate false" in {
-    def predicate(c: Char): Boolean = c == ('c')
-
+    def predicate: Char => Boolean = c => c == ('c')
     Parser.satisfiesWithParserFlatMap(predicate)("nope") shouldBe List()
   }
 
@@ -182,44 +177,99 @@ For example, applying word to the input "Yes!" gives the result [("Yes","!"), ("
     Parser.string("string")("strinly") shouldBe List()
   }
 
-  "many" should "return success if it matches 0 or more times" in {
+  "zeroOrMore" should "return success if it matches 0 or more times" in {
     val letterParser = Parser.letter
 
-    Parser.many(letterParser)("c123") shouldBe List((List('c'), "123"), (List(), "c123"))
-    Parser.many(letterParser)("abc123") shouldBe
+    Parser.zeroOrMore(letterParser)("c123") shouldBe List((List('c'), "123"), (List(), "c123"))
+    Parser.zeroOrMore(letterParser)("abc123") shouldBe
       List((List('a', 'b', 'c'), "123"), (List('a', 'b'), "c123"), (List('a'), "bc123"), (List(), "abc123"))
-    Parser.many(letterParser)("1a") shouldBe List((List(), "1a"))
-    Parser.many(letterParser)("a") shouldBe List((List('a'), ""), (List(), "a"))
+    Parser.zeroOrMore(letterParser)("1a") shouldBe List((List(), "1a"))
+    Parser.zeroOrMore(letterParser)("a") shouldBe List((List('a'), ""), (List(), "a"))
   }
 
-  "many1" should "return success if it matches one or more times" in {
+  "oneOrMore" should "return success if it matches one or more times" in {
     val letterParser = Parser.letter
 
-    Parser.many1(letterParser)("c123") shouldBe List((List('c'), "123"))
-    Parser.many1(letterParser)("abc123") shouldBe
+    Parser.oneOrMore(letterParser)("c123") shouldBe List((List('c'), "123"))
+    Parser.oneOrMore(letterParser)("abc123") shouldBe
       List((List('a', 'b', 'c'), "123"), (List('a', 'b'), "c123"), (List('a'), "bc123"))
-    Parser.many1(letterParser)("a") shouldBe List((List('a'), ""))
-    Parser.many1(letterParser)("1a") shouldBe List()
+    Parser.oneOrMore(letterParser)("a") shouldBe List((List('a'), ""))
+    Parser.oneOrMore(letterParser)("1a") shouldBe List()
+  }
+
+  "zeroOrOne" should "parse if parser succeeds" in {
+    Parser.zeroOrOne(Parser.char('-'))("-12") shouldBe List((Some('-'), "12"))
+  }
+
+  it should "parse if parser fails" in {
+    Parser.zeroOrOne(Parser.digit)("a1") shouldBe List((None, "a1"))
   }
 
   "nat" should "parse when there is at least one digit" in {
     Parser.nat("1a") shouldBe List((1, "a"))
-    Parser.nat("12a") shouldBe List((12, "a"))
+    Parser.nat("12a") shouldBe List((12, "a"), (1, "2a"))
   }
 
   it should "fail to parse when there is no digit character" in {
     Parser.nat("a12") shouldBe List()
   }
 
-  "inputExploration1" should "" in {
+  "ident" should "parse lower-case letter followed by 0 or more alphanumeric" in {
+    Parser.ident("a1B2.") shouldBe List(("a1B2","."),("a1B","2."),("a1","B2."),("a", "1B2."))
+  }
+
+  it should "not successfully parse when it does not start with a lower-case letter" in {
+    Parser.ident("A1") shouldBe List()
+    Parser.ident("1a") shouldBe List()
+  }
+
+  it should "not successfully parse when it starts with non-alphanumeric" in {
+    Parser.ident(".a") shouldBe List()
+  }
+
+  "int" should "parse a positive integer" in {
+    Parser.int("12a") shouldBe List((12, "a"), (1, "2a"))
+  }
+
+  it should "parse a negative integer" in {
+    Parser.int("-12a") shouldBe List((-12, "a"), (-1,"2a"))
+  }
+
+  "sepby1" should "parse a list separated by character" in {
+    //is this the correct expectation?
+    Parser.sepby1(Parser.digit)(Parser.char(','))("1,2") shouldBe List((List('1','2'), ""))
+  }
+
+  it should "handle a list of one" in {
+    Parser.sepby1(Parser.digit)(Parser.char(','))("1a") shouldBe List((List('1'),"a"))
+  }
+
+  it should "fail to parse if input does not initially match parser a" in {
+    Parser.sepby1(Parser.digit)(Parser.char(','))("a1,2") shouldBe List()
+  }
+
+  /*
+  neg
+  bracket
+  sepby
+  chainl1
+  chainr1
+  force
+  spaces
+  comment
+  junk
+  +++
+  */
+
+  "inputExploration1" should "input unaffected without flatMap" in {
     Parser.inputExploration1("HELLO") shouldBe List(('H', "ELLO"))
   }
 
-  "inputExploration2" should "" in {
+  "inputExploration2" should "input affected with flatMap" in {
     Parser.inputExploration2("HELLO") shouldBe List(('L', "LO"))
   }
 
-  "inputExploration3" should "" in {
+  "inputExploration3" should "input affected with flatMap" in {
     Parser.inputExploration3("HELLO") shouldBe List(("HEL", "LO"))
   }
 }
