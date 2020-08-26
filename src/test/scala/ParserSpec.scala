@@ -248,9 +248,20 @@ For example, applying word to the input "Yes!" gives the result [("Yes","!"), ("
     Parser.sepby1(Parser.digit)(Parser.char(','))("a1,2") shouldBe List()
   }
 
+  "ints" should "parse a list of ints" in {
+    Parser.ints("(1,2)") shouldBe List((List(1,2), ""))
+  }
+
+  "bracket" should "ignore unnecessary characters" in {
+    Parser.bracket(Parser.char('('), Parser.char('a'), Parser.char(')'))("(a)") shouldBe List(('a', ""))
+  }
+
+  "intsWithBracket" should "utilize bracket combinator parser" in {
+    Parser.ints("(1,2)") shouldBe List((List(1,2), ""))
+  }
+
   /*
   neg
-  bracket
   sepby
   chainl1
   chainr1

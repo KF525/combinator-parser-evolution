@@ -133,6 +133,25 @@ object Parser {
     }
   }
 
+  def bracket[A,B,C](open: Parser[A], parser: Parser[B], close: Parser[C]): Parser[B] = {
+    flatMap(open) { _ =>
+      flatMap(parser) { p =>
+        flatMap(close) { _ =>
+          pure(p)
+        }
+      }
+    }
+  }
+
+  def intsWithBracket: Parser[List[Int]]  = {
+    flatMap(bracket(
+      Parser.char('('),
+      Parser.sepby1(Parser.int)(Parser.char(',')),
+      Parser.char(')'))) { i =>
+      pure(i)
+    }
+  }
+
   //Playing around with how input is treated
   def inputExploration1: Parser[Char] = {
     letter
