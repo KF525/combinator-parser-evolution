@@ -238,6 +238,13 @@ object Parser {
       }
     }
 
+  def token[A](parser: Parser[A]): Parser[A] =
+    flatMap(parser) { a =>
+      flatMap(junk) { _ =>
+        pure(a)
+      }
+    }
+
   //Playing around with how input is treated
   def inputExploration1: Parser[Char] = {
     letter

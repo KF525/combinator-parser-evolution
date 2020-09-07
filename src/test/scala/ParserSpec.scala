@@ -381,8 +381,11 @@ For example, applying word to the input "Yes!" gives the result [("Yes","!"), ("
     Parser.parse(Parser.digit)("--c\n1a") shouldBe List(('1', "a"))
   }
 
+  "token" should "remove junk after parsing" in {
+    Parser.token(Parser.digit)("1--c") shouldBe List(('1', ""), ('1', "--c"))
+  }
+
   /*
-  token
   chainr
   neg
   force
