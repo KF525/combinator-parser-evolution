@@ -227,6 +227,10 @@ For example, applying word to the input "Yes!" gives the result [("Yes","!"), ("
     Parser.ident(".a") shouldBe List()
   }
 
+  "number" should "return a default of 0 if no digit is parsed" in {
+    Parser.number("hello") shouldBe List((0, "hello"))
+  }
+
   "int" should "parse a positive integer" in {
     Parser.int("12a") shouldBe List((12, "a"), (1, "2a"))
   }
@@ -236,7 +240,6 @@ For example, applying word to the input "Yes!" gives the result [("Yes","!"), ("
   }
 
   "sepby1" should "parse a list separated by character" in {
-    //is this the correct expectation?
     Parser.sepby1(Parser.digit)(Parser.char(','))("1,2") shouldBe List((List('1','2'), ""))
   }
 
@@ -260,16 +263,129 @@ For example, applying word to the input "Yes!" gives the result [("Yes","!"), ("
     Parser.ints("(1,2)") shouldBe List((List(1,2), ""))
   }
 
+  //TODO: Figure out why this is failing
+  "sepby" should "parse a sequence" in {
+    Parser.sepby(Parser.int)(Parser.char(','))("1,2") shouldBe List((List(1,2), ""))
+  }
+
+  it should "handle empty sequences" in {
+    Parser.sepby(Parser.int)(Parser.char(','))("a") shouldBe List((List(), "a"))
+  }
+
+  "chainl1" should "parses non-empty sequences of items separated by operators that associate to left" in {
+      def add: (String, String) => String = (a:String, b: String) => a ++ b
+
+      val stringParser: Parser[String] = Parser.string("a")
+      val plus: Char => Boolean = (c: Char) => c.equals('+')
+      val constantParser = Parser.constant(Parser.satisfies(plus), add)
+
+      val chainParser = Parser.chainl1[String](stringParser, constantParser)
+      chainParser("a+a+a") shouldBe List(("aaa", ""))
+  }
+
+  it should "handle int parser" in {
+    def sub: (Int, Int) => Int = (a:Int, b: Int) => b - a
+
+    val intParser: Parser[Int] = Parser.int
+    val plus: Char => Boolean = (c: Char) => c.equals('-')
+    val constantParser = Parser.constant(Parser.satisfies(plus), sub)
+
+    Parser.chainl1(intParser, constantParser)("1-2-3") shouldBe List((-4, ""))  // (1-2)-3 => -4
+  }
+
+  it should "handle just a single value" in {
+    def add: (String, String) => String = (a:String, b: String) => a ++ b
+
+    val stringParser = Parser.string("a")
+    val plus: Char => Boolean = (c: Char) => c.equals('+')
+    val constantParser = Parser.constant(Parser.satisfies(plus), add)
+
+    Parser.chainl1[String](stringParser, constantParser)("a") shouldBe List(("a",""))
+  }
+
+  it should "stop appropriately" in {
+    def add: (String, String) => String = (a:String, b: String) => a ++ b
+
+    val stringParser = Parser.string("a")
+    val plus: Char => Boolean = (c: Char) => c.equals('+')
+    val constantParser = Parser.constant(Parser.satisfies(plus), add)
+
+    Parser.chainl1[String](stringParser, constantParser)("a+a+ab") shouldBe List(("aaa", "b"))
+  }
+
+  it should "chain in the correct order" in {
+    def add: (String, String) => String = (a:String, b: String) => a ++ b
+
+    val stringParserA = Parser.string("a")
+    val stringParserB = Parser.string("b")
+    val plusParser = Parser.plus(stringParserA, stringParserB)
+    val plus: Char => Boolean = (c: Char) => c.equals('+')
+    val constantParser = Parser.constant(Parser.satisfies(plus), add)
+
+    Parser.chainl1[String](plusParser, constantParser)("a+b+a+b+a") shouldBe List(("ababa", ""))
+  }
+
+  "first" should "only return one successfully parsed result" in {
+    Parser.first(Parser.int)("123a") shouldBe List((123, "a"))
+  }
+
+  it should "return an empty list if there are no successful results" in {
+    Parser.first(Parser.int)("hello") shouldBe List()
+  }
+
+  "+++" should "be a deterministic version of ++" in {
+    Parser.+++(Parser.string("one"), Parser.string("two"))("onetwo") shouldBe List(("one", "two"))
+    Parser.+++(Parser.string("one"), Parser.string("two"))("twoone") shouldBe List(("two", "one"))
+    Parser.+++(Parser.string("one"), Parser.string("two"))("twotwo") shouldBe List(("two", "two"))
+  }
+
+  it should "return an empty list if there are no successful results" in {
+    Parser.+++(Parser.string("one"), Parser.string("two"))("threetwo") shouldBe List()
+  }
+
+  "color" should "accept the strings yellow or orange" in {
+    Parser.color("yelloworange") shouldBe List(("yellow", "orange"))
+    Parser.color("orangeyellow") shouldBe List(("orange", "yellow"))
+  }
+
+  it should "return an empty list if there are no successful results" in {
+    Parser.color("green") shouldBe List()
+  }
+
+  "spaces" should "consumes white space from the beginning of a string" in {
+    Parser.spaces("   space") shouldBe List(((),"space"), ((), " space"), ((),"  space"))
+    Parser.spaces("\ttab") shouldBe List(((), "tab"))
+    Parser.spaces("\nnewLine") shouldBe List(((), "newLine"))
+  }
+
+  it should "return an empty list if there are no spaces" in {
+    Parser.spaces("input") shouldBe List()
+  }
+
+  "comment" should "consume single line comment" in {
+    Parser.comment("--c") shouldBe List(((),""), ((),"c"))
+    Parser.comment("--c\ninput") shouldBe List(((), "\ninput"), ((), "c\ninput"))
+  }
+
+  it should "return an empty list f there are no comments" in {
+    Parser.comment("input") shouldBe List()
+  }
+
+  "junk" should "consume spaces and comments" in {
+    Parser.junk("\t--comment") shouldBe List(((),""), ((),"--comment"), ((),	 "\t--comment"))
+    Parser.junk("input\t--comment") shouldBe List(((),"input\t--comment"))
+  }
+
+  "parse" should "remove junk before parsing" in {
+    Parser.parse(Parser.digit)("\t1a") shouldBe List(('1', "a"))
+    Parser.parse(Parser.digit)("--c\n1a") shouldBe List(('1', "a"))
+  }
+
   /*
+  token
+  chainr
   neg
-  sepby
-  chainl1
-  chainr1
   force
-  spaces
-  comment
-  junk
-  +++
   */
 
   "inputExploration1" should "input unaffected without flatMap" in {
